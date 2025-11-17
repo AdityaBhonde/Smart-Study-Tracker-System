@@ -43,7 +43,9 @@ public class StudyTrackerController {
     @GetMapping("/tasks/top")
     public ResponseEntity<Task> getTopTask() {
         Task topTask = service.peekTopTask();
-        return topTask != null ? ResponseEntity.ok(topTask) : ResponseEntity.noContent().build();
+        return topTask != null ?
+                ResponseEntity.ok(topTask) :
+                ResponseEntity.noContent().build();
     }
 
     @GetMapping("/tasks")
@@ -56,6 +58,7 @@ public class StudyTrackerController {
         try {
             double duration = ((Number) request.get("durationHours")).doubleValue();
             String notes = (String) request.getOrDefault("notes", "");
+
             Task completedTask = service.completeTopTask(duration, notes);
             return ResponseEntity.ok(completedTask);
         } catch (NoSuchElementException e) {
@@ -65,7 +68,8 @@ public class StudyTrackerController {
         }
     }
 
-    // --- Subject Dependencies (Graph) Endpoints ---
+
+    // --- Subject Dependencies (Graph / Topological Sort) Endpoints ---
 
     @PostMapping("/subjects/dependency")
     public ResponseEntity<Void> addDependency(@RequestBody Map<String, String> request) {
@@ -82,12 +86,14 @@ public class StudyTrackerController {
     public ResponseEntity<List<String>> getStudyPath() {
         List<String> path = service.getIdealStudyPath();
         if (path.isEmpty() && service.getSubjectsInGraph().size() > 0) {
+            // Path is empty but subjects exist -> Cycle detected
             return new ResponseEntity<>(List.of("Error: Circular dependency detected."), HttpStatus.BAD_REQUEST);
         }
         return ResponseEntity.ok(path);
     }
 
-    // --- Study Log & Reporting Endpoints ---
+
+    // --- Study Log & Reporting (ArrayList / HashMap) Endpoints ---
 
     @PostMapping("/logs")
     public ResponseEntity<StudyLog> insertLog(@RequestBody Map<String, Object> request) {
@@ -95,6 +101,7 @@ public class StudyTrackerController {
             String subject = (String) request.get("subject");
             double duration = ((Number) request.get("durationHours")).doubleValue();
             String description = (String) request.getOrDefault("description", "");
+
             StudyLog newLog = service.insertLog(subject, duration, description);
             return new ResponseEntity<>(newLog, HttpStatus.CREATED);
         } catch (Exception e) {
@@ -139,6 +146,29 @@ public class StudyTrackerController {
         }
     }
 
+    /**
+     * NEW: Generate weekly plan using priority (Option B).
+     * POST /api/v1/schedule/weekly-plan
+     * Body: { "slotsPerDay": 3 }  (optional, defaults to 3)
+     * Returns 200 with JSON map: { "Monday": [ {slot, taskId, title, subject}, ... ], ... }
+     */
+    @PostMapping("/schedule/weekly-plan")
+    public ResponseEntity<java.util.Map<String, java.util.List<java.util.Map<String, Object>>>> weeklyPlan(
+            @RequestBody(required = false) Map<String, Object> request
+    ) {
+        try {
+            int slots = 3;
+            if (request != null && request.containsKey("slotsPerDay")) {
+                Number n = (Number) request.get("slotsPerDay");
+                if (n != null && n.intValue() > 0) slots = n.intValue();
+            }
+            var plan = service.generateWeeklyPlanUsingPriority(slots);
+            return ResponseEntity.ok(plan);
+        } catch (Exception e) {
+            return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+        }
+    }
+
     // --- Undo / Redo Endpoints ---
 
     @PostMapping("/undo")
@@ -153,3 +183,4 @@ public class StudyTrackerController {
         return ResponseEntity.ok(result);
     }
 }
+
