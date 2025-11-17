@@ -38,7 +38,7 @@ public class StudyTrackerService {
 
     // --- Task Prioritization Methods (PriorityQueue / Max-Heap) ---
 
-    public Task addTask(String title, String subject, int priorityScore, LocalDate deadline) {
+    public synchronized Task addTask(String title, String subject, int priorityScore, LocalDate deadline) {
         Task newTask = new Task(title, subject, priorityScore, deadline);
         taskQueue.add(newTask); // O(log n)
         subjectGraph.addSubject(subject);
@@ -48,18 +48,19 @@ public class StudyTrackerService {
         return newTask;
     }
 
-    public Task peekTopTask() {
+    public synchronized Task peekTopTask() {
         return taskQueue.peek(); // O(1)
     }
 
-    public List<Task> getAllTasks() {
+    public synchronized List<Task> getAllTasks() {
+        // Return tasks in priority order without modifying underlying queue
         return taskQueue.stream().sorted().collect(Collectors.toList());
     }
 
     /**
      * Marks the top priority task as complete and schedules a review.
      */
-    public Task completeTopTask(double durationHours, String notes) {
+    public synchronized Task completeTopTask(double durationHours, String notes) {
         Task completedTask = taskQueue.poll(); // O(log n)
         if (completedTask == null) {
             throw new NoSuchElementException("The task queue is empty.");
@@ -109,18 +110,18 @@ public class StudyTrackerService {
 
     // --- Study Log Methods ---
 
-    public StudyLog insertLog(String subject, double durationHours, String description) {
+    public synchronized StudyLog insertLog(String subject, double durationHours, String description) {
         StudyLog newLog = new StudyLog(LocalDate.now(), subject, durationHours, description);
         studyLogs.add(newLog);
         subjectGraph.addSubject(subject);
         return newLog;
     }
 
-    public List<StudyLog> getAllLogs() {
+    public synchronized List<StudyLog> getAllLogs() {
         return Collections.unmodifiableList(studyLogs);
     }
 
-    public Map<String, Double> getSummaryBySubject() {
+    public synchronized Map<String, Double> getSummaryBySubject() {
         Map<String, Double> durationBySubject = new HashMap<>();
         for (StudyLog log : studyLogs) {
             durationBySubject.compute(log.getSubject(), (k, v) -> (v == null) ? log.getDurationHours() : v + log.getDurationHours());
@@ -130,17 +131,17 @@ public class StudyTrackerService {
 
     // --- Subject Dependency Methods (Graph) ---
 
-    public void addDependency(String prerequisite, String subject) {
+    public synchronized void addDependency(String prerequisite, String subject) {
         subjectGraph.addDependency(prerequisite, subject);
         // record for undo
         undoRedoManager.record(new Action(Action.ActionType.DEPENDENCY_ADDED, prerequisite, subject));
     }
 
-    public List<String> getIdealStudyPath() {
+    public synchronized List<String> getIdealStudyPath() {
         return subjectGraph.getStudyPath();
     }
 
-    public Set<String> getSubjectsInGraph() {
+    public synchronized Set<String> getSubjectsInGraph() {
         return subjectGraph.getAllSubjects();
     }
 
@@ -150,14 +151,14 @@ public class StudyTrackerService {
      * Adds an unavailable time block. Times must be in HH:mm format (LocalTime).
      * Returns true if added (no conflict), false if a conflict exists.
      */
-    public boolean addUnavailableBlock(LocalTime start, LocalTime end) {
+    public synchronized boolean addUnavailableBlock(LocalTime start, LocalTime end) {
         TimeInterval t = new TimeInterval(start, end);
         return intervalTree.insert(t);
     }
 
     // --- Undo / Redo ---
 
-    public String undoAction() {
+    public synchronized String undoAction() {
         var action = undoRedoManager.undo();
         if (action == null) return "Nothing to undo.";
 
@@ -178,7 +179,7 @@ public class StudyTrackerService {
         }
     }
 
-    public String redoAction() {
+    public synchronized String redoAction() {
         var action = undoRedoManager.redo();
         if (action == null) return "Nothing to redo.";
 
@@ -196,4 +197,59 @@ public class StudyTrackerService {
                 return "Unsupported redo action.";
         }
     }
+
+    // --------------------------------------------------------------------------
+    // NEW: Weekly timetable generator using PriorityQueue (Option B)
+    // --------------------------------------------------------------------------
+    /**
+     * Generate a weekly timetable (Mon-Sun) with `slotsPerDay` slots each day.
+     * This uses the current task priorities. It does NOT remove tasks from the
+     * real taskQueue; it builds the schedule from a snapshot.
+     *
+     * Scheduling strategy (priority-based):
+     *  - Build a list of tasks sorted descending by priority (highest first)
+     *  - Fill each day's slots sequentially from that list (cyclically) so top tasks
+     *    are scheduled earlier in the week and repeated if necessary.
+     *
+     * Return format:
+     *   Map<String, List<Map<String,Object>>> where key is day name (e.g., "Monday")
+     *   and each list item is a map: { "slot": 1, "taskId": int, "title": string, "subject": string }
+     */
+    public synchronized Map<String, List<Map<String, Object>>> generateWeeklyPlanUsingPriority(int slotsPerDay) {
+        List<Task> sortedTasks = getAllTasks(); // already sorted by priority descending
+        Map<String, List<Map<String, Object>>> weekPlan = new LinkedHashMap<>();
+
+        // Days order: Monday -> Sunday
+        String[] days = { "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday" };
+
+        if (sortedTasks.isEmpty() || slotsPerDay <= 0) {
+            // return empty plan structure
+            for (String day : days) weekPlan.put(day, new ArrayList<>());
+            return weekPlan;
+        }
+
+        // We will cycle through sortedTasks to fill slots across days to give high-priority tasks
+        // earlier positions but allow repetition across days if there are fewer tasks than slots/day*7.
+        int index = 0;
+        int n = sortedTasks.size();
+
+        for (String day : days) {
+            List<Map<String, Object>> daySlots = new ArrayList<>();
+            for (int slot = 1; slot <= slotsPerDay; slot++) {
+                Task t = sortedTasks.get(index % n);
+                Map<String, Object> entry = new LinkedHashMap<>();
+                entry.put("slot", slot);
+                entry.put("taskId", t.getTaskId());
+                entry.put("title", t.getTitle());
+                entry.put("subject", t.getSubject());
+                // Optional: approximate times can be added by frontend; keep simple here
+                daySlots.add(entry);
+                index++;
+            }
+            weekPlan.put(day, daySlots);
+        }
+
+        return weekPlan;
+    }
 }
+
