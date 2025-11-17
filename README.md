@@ -234,23 +234,3 @@ You can test:
 Smart Study Tracker — DSA-Based Project
 
 ---
-
-# 🎓 Viva Questions (Use This!)
-
-1. **What DSA is used for priority tasks?**  
-   Max-Heap (PriorityQueue)
-
-2. **What is used for dependency resolution?**  
-   Directed Graph + Topological Sort (Kahn's Algorithm)
-
-3. **How is overlapping time detected?**  
-   Interval Tree
-
-4. **How weekly timetable works?**  
-   Copies heap → Greedy assignment → 7 days × 3 slots
-
-5. **Undo/Redo implementation?**  
-   Two stacks
-
----
-
