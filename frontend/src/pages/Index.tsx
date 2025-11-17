@@ -37,6 +37,13 @@ interface Task {
   review?: boolean;
 }
 
+interface WeeklyTask {
+  slot: string;
+  taskId: number;
+  title: string;
+  subject: string;
+}
+
 interface SubjectSummary {
   [subject: string]: number;
 }
@@ -81,6 +88,10 @@ const Index = () => {
   // Undo/Redo loading
   const [undoLoading, setUndoLoading] = useState(false);
   const [redoLoading, setRedoLoading] = useState(false);
+
+  // Weekly plan state (Updated to reflect backend structure)
+  const [weeklyPlan, setWeeklyPlan] = useState<Record<string, WeeklyTask[]>>({});
+  const [weeklyLoading, setWeeklyLoading] = useState(false);
 
   const apiCall = async (endpoint: string, method = 'GET', data: any = null) => {
     const options: RequestInit = {
@@ -322,6 +333,20 @@ const Index = () => {
       loadSummary();
     }
     setRedoLoading(false);
+  };
+
+  const generateWeeklyPlan = async () => {
+    setWeeklyLoading(true);
+    const result = await apiCall('/schedule/weekly-plan', 'POST');
+
+    if (result) {
+      setWeeklyPlan(result);
+      toast({
+        title: "Weekly Plan Generated",
+        description: "Your 7-day timetable has been created based on task priority."
+      });
+    }
+    setWeeklyLoading(false);
   };
 
   useEffect(() => {
@@ -676,7 +701,7 @@ const Index = () => {
                     />
                     <Input
                       type="number"
-                      placeholder="Priority Score (1-100)"
+                      placeholder="Priority Score (min 1-100 max)"
                       min="1"
                       max="100"
                       value={taskScore}
@@ -745,6 +770,87 @@ const Index = () => {
           {activeTab === "planner" && (
             <div className="space-y-6 animate-in fade-in duration-500">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+                {/* Weekly Timetable Generator */}
+                <Card className="shadow-elevated border-border/50">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Calendar className="w-5 h-5 text-primary" />
+                      Weekly Timetable (Priority Based)
+                    </CardTitle>
+                  </CardHeader>
+
+                  <CardContent className="space-y-4">
+                    <Button
+                      onClick={generateWeeklyPlan}
+                      disabled={weeklyLoading}
+                      className="w-full gradient-primary h-12"
+                    >
+                      {weeklyLoading ? "Generating..." : "Generate Weekly Plan"}
+                    </Button>
+
+                    {/* Display the timetable - FIXED BLOCK */}
+                    {Object.keys(weeklyPlan).length > 0 ? (
+                      <div className="space-y-4 mt-4">
+                        {Object.entries(weeklyPlan).map(([day, tasks]) => (
+                          <div
+                            key={day}
+                            className="p-4 border border-border/50 rounded-lg glass-morphism"
+                          >
+                            <h3 className="text-lg font-bold text-primary mb-2">{day}</h3>
+
+                            {tasks.length > 0 ? (
+                              <ul className="ml-4 space-y-1">
+                                {tasks.map((t: WeeklyTask, i: number) => (
+                                  <li key={i} className="text-sm">
+                                    <b className="font-semibold text-accent">{t.slot}</b>: {t.title}
+                                    <span className="text-muted-foreground"> ({t.subject})</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            ) : (
+                              <p className="text-muted-foreground">No tasks</p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground mt-2">
+                        Click "Generate Weekly Plan" to see your timetable.
+                      </p>
+                    )}
+                    {/* END OF FIXED BLOCK */}
+                  </CardContent>
+                </Card>
+
+                {/* Study Path */}
+                <Card className="shadow-elevated border-border/50">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Layers className="w-5 h-5 text-accent" />
+                      Recommended Learning Path
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
+                      {studyPath.length > 0 ? (
+                        studyPath.map((subject, index) => (
+                          <div key={index} className="flex items-center gap-4 p-4 glass-morphism rounded-lg hover:border-accent/50 transition-colors">
+                            <div className="flex-shrink-0 w-10 h-10 rounded-full gradient-primary flex items-center justify-center font-bold text-white shadow-glow">
+                              {index + 1}
+                            </div>
+                            <span className="flex-1 font-medium text-foreground">{subject}</span>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="p-12 text-center text-muted-foreground">
+                          <p>Add dependencies and calculate path</p>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+
                 {/* Add Dependencies */}
                 <Card className="shadow-elevated border-border/50">
                   <CardHeader>
@@ -811,33 +917,6 @@ const Index = () => {
                   </CardContent>
                 </Card>
 
-                {/* Study Path */}
-                <Card className="shadow-elevated border-border/50">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Layers className="w-5 h-5 text-accent" />
-                      Recommended Learning Path
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
-                      {studyPath.length > 0 ? (
-                        studyPath.map((subject, index) => (
-                          <div key={index} className="flex items-center gap-4 p-4 glass-morphism rounded-lg hover:border-accent/50 transition-colors">
-                            <div className="flex-shrink-0 w-10 h-10 rounded-full gradient-primary flex items-center justify-center font-bold text-white shadow-glow">
-                              {index + 1}
-                            </div>
-                            <span className="flex-1 font-medium text-foreground">{subject}</span>
-                          </div>
-                        ))
-                      ) : (
-                        <div className="p-12 text-center text-muted-foreground">
-                          <p>Add dependencies and calculate path</p>
-                        </div>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
               </div>
             </div>
           )}
