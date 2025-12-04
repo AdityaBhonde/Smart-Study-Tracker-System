@@ -219,13 +219,17 @@ You can test:
 
 ---
 
-# 🖼 Screenshots (Add your images here)
+# 🖼 Screenshots 
 
-```
-![Dashboard](screenshots/dashboard.png)
-![Weekly Plan](screenshots/weekly-plan.png)
-![Path Planner](screenshots/path.png)
-```
+
+<img width="1913" height="798" alt="Screenshot 2025-11-14 023531" src="https://github.com/user-attachments/assets/39001553-e29f-4296-ad3e-8690e6a48f76" />
+<img width="1870" height="859" alt="Screenshot 2025-11-14 023651" src="https://github.com/user-attachments/assets/2857af96-0e6b-4b79-9a96-d42d4df24b47" />
+<img width="1872" height="851" alt="Screenshot 2025-11-14 030002" src="https://github.com/user-attachments/assets/5eead3bd-5bbe-4a19-8f54-bceead6fd040" />
+<img width="1919" height="1079" alt="Screenshot 2025-11-14 040303" src="https://github.com/user-attachments/assets/721d45eb-c3ab-4363-80dd-404cef1bcdbe" />
+<img width="1847" height="853" alt="Screenshot 2025-11-14 040356" src="https://github.com/user-attachments/assets/d4cf0c14-9413-44c6-9211-aaa1b258742d" />
+
+
+
 
 ---
 
